@@ -48,6 +48,9 @@ logger = logging.getLogger(__name__)
 def is_pause_file_exists():
   return os.path.exists("pause.signal")
 
+def count_parameters(model: torch.nn.Module):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 
 class NetworkTrainer:
     def __init__(self):
@@ -429,6 +432,7 @@ class NetworkTrainer:
             training_model = ds_model
         else:
             if train_unet:
+                # GPU VRAM USAGE
                 unet = accelerator.prepare(unet)
             else:
                 unet.to(accelerator.device, dtype=unet_weight_dtype)  # move to device because unet is not prepared by accelerator
@@ -864,6 +868,7 @@ class NetworkTrainer:
 
                     # Predict the noise residual
                     with accelerator.autocast():
+                        # GPU VRAM USAGE
                         noise_pred = self.call_unet(
                             args,
                             accelerator,
@@ -968,8 +973,17 @@ class NetworkTrainer:
                     break
 
                 if (is_pause_file_exists()):
+                    original_device_unet = unet.device
+                    
+                    unet.to('cpu')
+                    network.to('cpu')
+
+                    torch.cuda.empty_cache()
                     input('press enter to continue')
-                    os.remove('pause.signal')
+                    
+                    unet.to(original_device_unet)
+                    network.to(original_device_unet)
+                    os.rename('pause.signal', 'pause.signal.false')
 
             if args.logging_dir is not None:
                 logs = {"loss/epoch": loss_recorder.moving_average}
