@@ -45,6 +45,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def is_pause_file_exists():
+  return os.path.exists("pause.signal")
+
 
 class NetworkTrainer:
     def __init__(self):
@@ -963,6 +966,10 @@ class NetworkTrainer:
 
                 if global_step >= args.max_train_steps:
                     break
+
+                if (is_pause_file_exists()):
+                    input('press enter to continue')
+                    os.remove('pause.signal')
 
             if args.logging_dir is not None:
                 logs = {"loss/epoch": loss_recorder.moving_average}
